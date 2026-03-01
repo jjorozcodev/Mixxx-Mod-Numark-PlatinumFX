@@ -52,15 +52,17 @@ MixtrackPlatinumFX.autoLoopSizes = [
 // https://manual.mixxx.org/2.3/en/chapters/appendix/mixxx_controls.html#control-[ChannelN]-beatjump_X_forward
 // underscores (_) at the end are needed because numeric values (e.g. 8) have two underscores (e.g. beatjump_8_forward),
 // but "beatjump_forward"/"beatjump_backward" have only one underscore
+
+// JJ: Configuración de parejas (Atrás/Adelante)
 MixtrackPlatinumFX.beatJumpValues = [
-    "0.0625_",
-    "0.125_",
-    "0.25_",
-    "0.5_",
-    "1_",
-    "2_",
-    "", // "beatjump_forward"/"beatjump_backward" - jump by the value selected in Mixxx GUI (4 by default)
-    "8_"
+    "1_backward", // Pad 1: Un beat atrás (para clavar el ritmo)
+    "1_forward",  // Pad 2: Un beat adelante
+    "4_backward", // Pad 3: Un compás atrás
+    "4_forward",  // Pad 4: Un compás adelante
+    "8_backward", // Pad 5: Dos frases atrás
+    "8_forward",  // Pad 6: Dos frases adelante
+    "32_backward",// Pad 7: Salto largo atrás (8 frases)
+    "32_forward"  // Pad 8: Salto largo adelante (navegar rápido)
 ];
 
 // dim all lights when inactive instead of turning them off
@@ -928,7 +930,9 @@ MixtrackPlatinumFX.PadSection = function(deckNumber) {
     this.modes[MixtrackPlatinumFX.PadModeControls.SAMPLE1] = new MixtrackPlatinumFX.ModeSample(deckNumber, false);
     this.modes[MixtrackPlatinumFX.PadModeControls.BEATJUMP] = new MixtrackPlatinumFX.ModeBeatjump(deckNumber, 2);
     this.modes[MixtrackPlatinumFX.PadModeControls.SAMPLE2] = new MixtrackPlatinumFX.ModeSample(deckNumber, 1);
-    this.modes[MixtrackPlatinumFX.PadModeControls.AUTOLOOP2] = new MixtrackPlatinumFX.ModeAutoLoop(deckNumber, 1);
+    // BEATJUMP is intentionally bound to AUTOLOOP as secondary mode.
+    // Long-press / tertiary modes are kept for compatibility but not used.
+    this.modes[MixtrackPlatinumFX.PadModeControls.AUTOLOOP2] = new MixtrackPlatinumFX.ModeBeatjump(deckNumber, 2);
     this.modes[MixtrackPlatinumFX.PadModeControls.KEYPLAY] = new MixtrackPlatinumFX.ModeKeyPlay(deckNumber, 2);
     this.modes[MixtrackPlatinumFX.PadModeControls.HOTCUE2] = new MixtrackPlatinumFX.ModeHotcue(deckNumber, 1);
     this.modes[MixtrackPlatinumFX.PadModeControls.AUTOLOOP3] = new MixtrackPlatinumFX.ModeCueLoop(deckNumber, 2);
@@ -1491,34 +1495,24 @@ MixtrackPlatinumFX.ModeBeatjump = function(deckNumber, secondaryMode) {
     components.ComponentContainer.call(this);
 
     this.name = MixtrackPlatinumFX.PadModeControls.BEATJUMP;
-    this.control = MixtrackPlatinumFX.PadModeControls.HOTCUE;
+    this.control = MixtrackPlatinumFX.PadModeControls.AUTOLOOP;
+    this.unshiftedControl = MixtrackPlatinumFX.PadModeControls.AUTOLOOP;
     this.secondaryMode = secondaryMode;
-    this.unshiftedControl = MixtrackPlatinumFX.PadModeControls.HOTCUE;
     this.lightOnValue = 0x7F;
 
     this.pads = new components.ComponentContainer();
+    const jumps = [1, 4, 8, 16, 1, 4, 8, 16];
+
     for (let i = 0; i < 8; i++) {
+        const currentSize = jumps[i];
+        const direction = (i >= 4) ? "backward" : "forward";
+
         this.pads[i] = new components.Button({
             group: `[Channel${  deckNumber  }]`,
             midi: [0x93 + deckNumber, 0x14 + i],
-            size: MixtrackPlatinumFX.beatJumpValues[i],
-            shiftControl: true,
-            sendShifted: true,
-            shiftOffset: 0x08,
-            shift: function() {
-                this.disconnect();
-                this.inKey = `beatjump_${  this.size  }backward`;
-                this.outKey = `beatjump_${  this.size  }backward`;
-                this.connect();
-                this.trigger();
-            },
-            unshift: function() {
-                this.disconnect();
-                this.inKey = `beatjump_${  this.size  }forward`;
-                this.outKey = `beatjump_${  this.size  }forward`;
-                this.connect();
-                this.trigger();
-            },
+            // Comando directo a Mixxx: beatjump_1_backward, beatjump_1_forward, etc.
+            key: `beatjump_${  currentSize  }_${  direction  }`,
+            lightOnValue: 0x7F,
             outConnect: false
         });
     }
